@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { adminExists } from "@/lib/auth";
 import SetupForm from "@/components/SetupForm";
