@@ -544,4 +544,50 @@ function seedIfEmpty(db) {
   // revenue table intentionally left empty — real data only, no fake/placeholder rows
 }
 
-module.exports = { ensureDataDir, initSchema, seedIfEmpty, makeId, DB_PATH, DATA_DIR, PHASE_LABELS };
+function seedClientsIfEmpty(db) {
+  // Seed clients + deliverables independently of the main project seed,
+  // and backfill client_id links on existing rows. Idempotent — safe every startup.
+  const { count } = db.prepare("SELECT COUNT(*) as count FROM clients").get();
+  if (count === 0) {
+    const now = new Date().toISOString();
+    const insertClient = db.prepare(`
+      INSERT INTO clients (id, name, box_host, plan, status, contact_email, notes, created_at, updated_at)
+      VALUES (@id, @name, @box_host, @plan, @status, @contact_email, @notes, @created_at, @updated_at)
+    `);
+    const clientIds = {};
+    for (const c of SEED_CLIENTS) {
+      const clientId = makeId("client");
+      clientIds[c.name] = clientId;
+      insertClient.run({ id: clientId, name: c.name, box_host: c.box_host, plan: c.plan, status: c.status, contact_email: c.contact_email, notes: c.notes, created_at: now, updated_at: now });
+    }
+    const insertDeliverable = db.prepare(`
+      INSERT INTO deliverables (id, client_id, name, type, url, status, deployed_at, notes, created_at)
+      VALUES (@id, @client_id, @name, @type, @url, @status, @deployed_at, @notes, @created_at)
+    `);
+    for (const d of SEED_DELIVERABLES) {
+      const clientId = clientIds[d.client];
+      if (!clientId) continue;
+      insertDeliverable.run({ id: makeId("deliv"), client_id: clientId, name: d.name, type: d.type, url: d.url, status: d.status, deployed_at: d.status === "live" ? now : null, notes: "", created_at: now });
+    }
+  }
+  // Backfill client_id links by name (idempotent)
+  const rows = db.prepare("SELECT id, name FROM clients").all();
+  const byName = {};
+  for (const r of rows) byName[r.name] = r.id;
+  const link = (table, name, clientName) => {
+    const cid = byName[clientName];
+    if (!cid) return;
+    db.prepare(`UPDATE ${table} SET client_id = ? WHERE name = ? AND client_id IS NULL`).run(cid, name);
+  };
+  const linkSite = (urlLike, clientName) => {
+    const cid = byName[clientName];
+    if (!cid) return;
+    db.prepare(`UPDATE sites SET client_id = ? WHERE url LIKE ? AND client_id IS NULL`).run(cid, urlLike);
+  };
+  link("agents", "Client Receptionist (Waqas)", "Waqas Bhai (PRO Office)");
+  link("projects", "PRO Office (Waqas)", "Waqas Bhai (PRO Office)");
+  link("projects", "Opsync", "Opsync");
+  linkSite("%opsync.tech%", "Opsync");
+}
+
+module.exports = { ensureDataDir, initSchema, seedIfEmpty, seedClientsIfEmpty, makeId, DB_PATH, DATA_DIR, PHASE_LABELS };
