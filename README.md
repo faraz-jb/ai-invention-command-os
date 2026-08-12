@@ -1,10 +1,19 @@
 # AI Invention Command OS
 
-Self-hosted control dashboard for AI agents, projects, sites, and revenue.
+**The multi-tenant control plane for AI agencies** — one self-hosted dashboard and one MCP endpoint to run every client's agents, projects, sites, revenue, and remote boxes. SQLite-backed, zero external services, MIT-licensed.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ef2c3.svg)](LICENSE)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-22d3ee.svg)](https://nextjs.org)
 [![Node 24+](https://img.shields.io/badge/node-24%2B-22d3ee.svg)](https://nodejs.org)
+
+## Why Command OS
+
+Most agent dashboards track a single project or a single agent. Command OS is built for **agencies that ship many AI systems for many clients**:
+
+- **Multi-client tenancy** — every client is a first-class tenant with their own box, agents, projects, sites, and deliverables inventory. Client agents stay separate from your internal agents.
+- **Remote-exec without SSH** — restart, redeploy, fix, or health-check any client's box from the dashboard. The client box polls with its own token and executes; Command OS never holds your clients' SSH credentials.
+- **One MCP endpoint** — any AI agent (Claude, Cursor, your own stack) reads and writes the whole OS over stdio. 17 tools, no API key ceremony.
+- **Real data only** — revenue, sites, crons, sessions. No mock numbers, ever.
 
 ## Screenshots
 
