@@ -6,6 +6,7 @@ const dbInit = nodeRequire("../../scripts/db-init.cjs") as {
   ensureDataDir: () => void;
   initSchema: (db: DatabaseSync) => void;
   seedIfEmpty: (db: DatabaseSync) => void;
+  seedClientsIfEmpty: (db: DatabaseSync) => void;
   DB_PATH: string;
 };
 
