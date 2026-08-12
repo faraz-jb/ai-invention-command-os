@@ -15,6 +15,10 @@ interface DashboardData {
   cronsFailed: number;
   sessionsToday: number;
   tasksByStatus: { status: string; count: number }[];
+  clientsTotal: number;
+  clientsActive: number;
+  deliverablesLive: number;
+  clients: { id: string; name: string; status: string }[];
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -40,6 +44,7 @@ export default function DashboardPage() {
     { label: "Tasks Open", value: data.stats.open_tasks, href: "/tasks" },
     { label: "Agents Online", value: data.stats.agents_online, href: "/agents" },
     { label: "Sites Up", value: data.stats.sites_up, href: "/sites" },
+    { label: "Clients Active", value: data.clientsActive, href: "/clients" },
   ];
 
   return (
@@ -136,6 +141,27 @@ export default function DashboardPage() {
               </li>
             ))}
           </ul>
+        </div>
+      </div>
+
+      <div className="bg-surface border border-border rounded-xl p-4">
+        <h2 className="font-medium mb-3">Clients</h2>
+        <div className="grid sm:grid-cols-3 gap-3">
+          {data.clients.map((c) => (
+            <Link
+              key={c.id}
+              href={`/clients/${c.id}`}
+              className="flex items-center gap-2 text-sm bg-surface-2 rounded-lg px-3 py-2 hover:bg-surface-2/70 transition-colors"
+            >
+              <span
+                className={`h-2 w-2 rounded-full shrink-0 ${
+                  c.status === "active" ? "bg-success" : c.status === "onboarding" ? "bg-warning" : "bg-text-dim"
+                }`}
+              />
+              <p className="truncate">{c.name}</p>
+            </Link>
+          ))}
+          {data.clients.length === 0 && <p className="text-text-dim text-sm">No clients yet.</p>}
         </div>
       </div>
 

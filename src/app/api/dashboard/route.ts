@@ -56,6 +56,15 @@ export async function GET() {
     .prepare("SELECT COUNT(*) as count FROM sessions WHERE started_at >= ?")
     .get(todayStart) as { count: number };
 
+  const clientsTotal = db.prepare("SELECT COUNT(*) as count FROM clients").get() as { count: number };
+  const clientsActive = db
+    .prepare("SELECT COUNT(*) as count FROM clients WHERE status = 'active'")
+    .get() as { count: number };
+  const deliverablesLive = db
+    .prepare("SELECT COUNT(*) as count FROM deliverables WHERE status = 'live'")
+    .get() as { count: number };
+  const clients = db.prepare("SELECT id, name, status FROM clients ORDER BY name ASC").all();
+
   return NextResponse.json({
     project_counts: projectCounts,
     task_counts: taskCounts,
@@ -74,5 +83,9 @@ export async function GET() {
     cronsFailed: cronsFailed.count,
     sessionsToday: sessionsToday.count,
     tasksByStatus: taskCounts,
+    clientsTotal: clientsTotal.count,
+    clientsActive: clientsActive.count,
+    deliverablesLive: deliverablesLive.count,
+    clients,
   });
 }

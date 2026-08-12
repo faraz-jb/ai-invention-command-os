@@ -282,6 +282,125 @@ const TOOLS = [
       }
     },
   },
+  {
+    name: "clients_list",
+    description: "List all clients with deliverable/agent/project counts",
+    inputSchema: { type: "object", properties: {} },
+    handler() {
+      const db = getDb();
+      try {
+        return db
+          .prepare(
+            `SELECT c.*,
+              (SELECT COUNT(*) FROM deliverables d WHERE d.client_id = c.id) as deliverables_count,
+              (SELECT COUNT(*) FROM agents a WHERE a.client_id = c.id) as agents_count,
+              (SELECT COUNT(*) FROM projects p WHERE p.client_id = c.id) as projects_count
+            FROM clients c
+            ORDER BY c.name ASC`
+          )
+          .all();
+      } finally {
+        db.close();
+      }
+    },
+  },
+  {
+    name: "clients_get",
+    description: "Get a client with its deliverables, agents, projects, and sites",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+    handler(args) {
+      if (!args.id) throw new Error("id is required");
+      const db = getDb();
+      try {
+        const client = db.prepare("SELECT * FROM clients WHERE id = ?").get(args.id);
+        if (!client) throw new Error("client not found");
+        return {
+          client,
+          deliverables: db
+            .prepare("SELECT * FROM deliverables WHERE client_id = ? ORDER BY created_at DESC")
+            .all(args.id),
+          agents: db.prepare("SELECT * FROM agents WHERE client_id = ? ORDER BY name ASC").all(args.id),
+          projects: db
+            .prepare("SELECT * FROM projects WHERE client_id = ? ORDER BY updated_at DESC")
+            .all(args.id),
+          sites: db.prepare("SELECT * FROM sites WHERE client_id = ? ORDER BY name ASC").all(args.id),
+        };
+      } finally {
+        db.close();
+      }
+    },
+  },
+  {
+    name: "deliverables_list",
+    description: "List deliverables, optionally filtered by client_id",
+    inputSchema: {
+      type: "object",
+      properties: { client_id: { type: "string" } },
+    },
+    handler(args) {
+      const db = getDb();
+      try {
+        if (args.client_id) {
+          return db
+            .prepare("SELECT * FROM deliverables WHERE client_id = ? ORDER BY created_at DESC")
+            .all(args.client_id);
+        }
+        return db.prepare("SELECT * FROM deliverables ORDER BY created_at DESC").all();
+      } finally {
+        db.close();
+      }
+    },
+  },
+  {
+    name: "deliverables_create",
+    description: "Create a deliverable for a client",
+    inputSchema: {
+      type: "object",
+      properties: {
+        client_id: { type: "string" },
+        name: { type: "string" },
+        type: {
+          type: "string",
+          enum: ["receptionist", "portal", "website", "dashboard", "automation", "agent", "other"],
+        },
+        url: { type: "string" },
+        status: { type: "string", enum: ["live", "building", "planned"] },
+      },
+      required: ["client_id", "name"],
+    },
+    handler(args) {
+      if (!args.client_id) throw new Error("client_id is required");
+      if (!args.name || !String(args.name).trim()) throw new Error("name is required");
+      const db = getDb();
+      try {
+        const client = db.prepare("SELECT id FROM clients WHERE id = ?").get(args.client_id);
+        if (!client) throw new Error("client not found");
+        const now = new Date().toISOString();
+        const deliverable = {
+          id: makeId("deliv"),
+          client_id: args.client_id,
+          name: String(args.name).trim(),
+          type: args.type || "other",
+          url: args.url ? String(args.url) : "",
+          status: args.status || "live",
+          deployed_at: args.status === "planned" ? null : now,
+          notes: "",
+          created_at: now,
+        };
+        db.prepare(`
+          INSERT INTO deliverables (id, client_id, name, type, url, status, deployed_at, notes, created_at)
+          VALUES (@id, @client_id, @name, @type, @url, @status, @deployed_at, @notes, @created_at)
+        `).run(deliverable);
+        return deliverable;
+      } finally {
+        db.close();
+      }
+    },
+  },
 ];
 
 const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));

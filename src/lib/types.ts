@@ -19,6 +19,7 @@ export interface Project {
   name: string;
   type: ProjectType;
   client_name: string | null;
+  client_id: string | null;
   domain: string | null;
   status: ProjectStatus;
   phase_index: number;
@@ -28,6 +29,42 @@ export interface Project {
   next_action: string;
   created_at: string;
   updated_at: string;
+}
+
+export type ClientStatus = "active" | "onboarding" | "paused" | "done";
+
+export interface Client {
+  id: string;
+  name: string;
+  box_host: string;
+  plan: string;
+  status: ClientStatus;
+  contact_email: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DeliverableType =
+  | "receptionist"
+  | "portal"
+  | "website"
+  | "dashboard"
+  | "automation"
+  | "agent"
+  | "other";
+export type DeliverableStatus = "live" | "building" | "planned";
+
+export interface Deliverable {
+  id: string;
+  client_id: string;
+  name: string;
+  type: DeliverableType;
+  url: string;
+  status: DeliverableStatus;
+  deployed_at: string | null;
+  notes: string;
+  created_at: string;
 }
 
 export type PhaseStatus = "pending" | "in_progress" | "done" | "blocked";
@@ -69,6 +106,7 @@ export interface AgentRecord {
   current_task: string | null;
   sessions_today: number;
   token_usage_month: number;
+  client_id: string | null;
 }
 
 export type SiteStatus = "up" | "down" | "degraded";
@@ -81,6 +119,7 @@ export interface Site {
   last_check: string | null;
   http_code: number | null;
   notes: string;
+  client_id: string | null;
 }
 
 export type RevenueSource = "stripe" | "gumroad" | "adsense" | "manual";

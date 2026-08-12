@@ -12,6 +12,10 @@ Self-hosted control dashboard for AI agents, projects, sites, and revenue.
 |---|---|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Agents](docs/screenshots/agents.png) |
 
+| Clients | Client Workspace |
+|---|---|
+| ![Clients](docs/screenshots/clients.png) | ![Client Workspace](docs/screenshots/client-workspace.png) |
+
 | Tasks | Sites |
 |---|---|
 | ![Tasks](docs/screenshots/tasks.png) | ![Sites](docs/screenshots/sites.png) |
@@ -37,6 +41,10 @@ Self-hosted control dashboard for AI agents, projects, sites, and revenue.
 **Monitoring**
 - Site uptime checks, cron job health, GitHub Actions CI status across your repos
 - MCP server — any AI agent can read and write the OS directly over stdio
+
+**Multi-Client Tenancy**
+- Every client gets a workspace — their own box, agents, projects, sites, and deliverables
+- Client agents (e.g. a receptionist) are kept separate from internal (VPS/Laptop) agents
 
 ## Quick Start
 
@@ -66,9 +74,9 @@ Any AI agent can connect to Command OS as an MCP server over stdio:
 node scripts/command-os-mcp.cjs
 ```
 
-The server initializes its own database on first run — no need to start the Next.js app first. It exposes 10 tools:
+The server initializes its own database on first run — no need to start the Next.js app first. It exposes 14 tools:
 
-`tasks_list` · `tasks_create` · `tasks_update` · `projects_list` · `agents_list` · `agents_heartbeat` · `sites_list` · `sites_check` · `crons_list` · `revenue_list`
+`tasks_list` · `tasks_create` · `tasks_update` · `projects_list` · `agents_list` · `agents_heartbeat` · `sites_list` · `sites_check` · `crons_list` · `revenue_list` · `clients_list` · `clients_get` · `deliverables_list` · `deliverables_create`
 
 ## What's Inside
 
@@ -77,6 +85,8 @@ The server initializes its own database on first run — no need to start the Ne
 | `projects` | Pipeline entries — internal + client work, phase, priority, next action |
 | `tasks` | Work items assigned to agents, tracked through todo → in progress → review → done |
 | `agents` | Registry of connected agents — status, heartbeat, session/token usage |
+| `clients` | Client tenants — their box, plan, status, contact, notes |
+| `deliverables` | What we've shipped for each client — receptionist, portal, dashboard, etc. |
 | `sites` | Uptime tracking for your properties |
 | `cron_jobs` | Scheduled automation health |
 | `sessions` | Agent work sessions with token usage |

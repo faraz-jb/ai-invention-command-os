@@ -31,6 +31,13 @@ const COLORS: Record<string, string> = {
   success: "bg-success/15 text-success",
   failure: "bg-danger/15 text-danger",
   unavailable: "bg-text-dim/15 text-text-dim",
+  active: "bg-success/15 text-success",
+  onboarding: "bg-warning/15 text-warning",
+  paused: "bg-text-dim/15 text-text-dim",
+  client_done: "bg-accent/15 text-accent",
+  live: "bg-success/15 text-success",
+  building: "bg-warning/15 text-warning",
+  planned: "bg-text-dim/15 text-text-dim",
 };
 
 export default function Badge({ children, tone }: { children: React.ReactNode; tone: string }) {

@@ -17,11 +17,36 @@ function makeId(prefix) {
 }
 
 const SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS clients (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    box_host TEXT NOT NULL DEFAULT '',
+    plan TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active',
+    contact_email TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS deliverables (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'other',
+    url TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'live',
+    deployed_at TEXT,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS projects (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('internal','client')),
     client_name TEXT,
+    client_id TEXT,
     domain TEXT,
     status TEXT NOT NULL DEFAULT 'idea',
     phase_index INTEGER NOT NULL DEFAULT 0,
@@ -63,7 +88,8 @@ const SCHEMA_SQL = `
     last_seen TEXT NOT NULL,
     current_task TEXT,
     sessions_today INTEGER NOT NULL DEFAULT 0,
-    token_usage_month INTEGER NOT NULL DEFAULT 0
+    token_usage_month INTEGER NOT NULL DEFAULT 0,
+    client_id TEXT
   );
 
   CREATE TABLE IF NOT EXISTS sites (
@@ -73,7 +99,8 @@ const SCHEMA_SQL = `
     status TEXT NOT NULL DEFAULT 'up',
     last_check TEXT,
     http_code INTEGER,
-    notes TEXT NOT NULL DEFAULT ''
+    notes TEXT NOT NULL DEFAULT '',
+    client_id TEXT
   );
 
   CREATE TABLE IF NOT EXISTS revenue (
@@ -127,9 +154,20 @@ function ensureDataDir() {
   }
 }
 
+function ensureColumn(db, table, col, ddl) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some((c) => c.name === col)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+  }
+}
+
 function initSchema(db) {
   db.exec("PRAGMA journal_mode = WAL");
   db.exec(SCHEMA_SQL);
+
+  ensureColumn(db, "agents", "client_id", "TEXT");
+  ensureColumn(db, "projects", "client_id", "TEXT");
+  ensureColumn(db, "sites", "client_id", "TEXT");
 
   const existing = db.prepare("SELECT value FROM settings WHERE key = 'session_secret'").get();
   if (!existing) {
@@ -139,6 +177,51 @@ function initSchema(db) {
 }
 
 const PHASE_LABELS = ["Idea", "Research", "Design", "Build", "Deploy", "SEO", "Launch", "Scale", "Done"];
+
+const SEED_CLIENTS = [
+  {
+    name: "Waqas Bhai (PRO Office)",
+    box_host: "PRO VPS",
+    plan: "PRO",
+    status: "active",
+    contact_email: "",
+    notes: "UAE PRO office — receptionist + 16 agents + portal",
+  },
+  {
+    name: "Opsync",
+    box_host: "Opsync VPS",
+    plan: "Amazon Expert",
+    status: "active",
+    contact_email: "",
+    notes: "Amazon seller operations dashboard + MCP",
+  },
+];
+
+const SEED_DELIVERABLES = [
+  {
+    client: "Waqas Bhai (PRO Office)",
+    name: "AI Receptionist",
+    type: "receptionist",
+    status: "live",
+    url: "https://professionalbusiness.com",
+  },
+  { client: "Waqas Bhai (PRO Office)", name: "PRO Client Portal", type: "portal", status: "live", url: "" },
+  {
+    client: "Waqas Bhai (PRO Office)",
+    name: "PRO Playbook System (16 agents)",
+    type: "agent",
+    status: "live",
+    url: "",
+  },
+  {
+    client: "Opsync",
+    name: "Opsync Dashboard",
+    type: "dashboard",
+    status: "live",
+    url: "https://opsync.tech",
+  },
+  { client: "Opsync", name: "Opsync MCP Server", type: "automation", status: "live", url: "" },
+];
 
 const SEED_PROJECTS = [
   {
@@ -192,6 +275,7 @@ const SEED_PROJECTS = [
     name: "PRO Office (Waqas)",
     type: "client",
     client_name: "Waqas Bhai",
+    client: "Waqas Bhai (PRO Office)",
     domain: "professionalbusiness.com",
     status: "deploy",
     phase_index: 4,
@@ -202,6 +286,7 @@ const SEED_PROJECTS = [
     name: "Opsync",
     type: "client",
     client_name: "Opsync",
+    client: "Opsync",
     domain: "opsync.tech",
     status: "launch",
     phase_index: 6,
@@ -227,6 +312,7 @@ const SEED_AGENTS = [
     role: "client",
     status: "online",
     current_task: "PRO client support",
+    client: "Waqas Bhai (PRO Office)",
   },
 ];
 
@@ -238,7 +324,7 @@ const SEED_SITES = [
   { name: "News", url: "https://news.aiinvention.tech" },
   { name: "Admin", url: "https://admin.aiinvention.tech" },
   { name: "SerpBear", url: "https://serp.aiinvention.tech" },
-  { name: "Opsync", url: "https://opsync.tech" },
+  { name: "Opsync", url: "https://opsync.tech", client: "Opsync" },
 ];
 
 const SEED_TASKS = [
@@ -263,9 +349,50 @@ function seedIfEmpty(db) {
 
   const now = new Date().toISOString();
 
+  const insertClient = db.prepare(`
+    INSERT INTO clients (id, name, box_host, plan, status, contact_email, notes, created_at, updated_at)
+    VALUES (@id, @name, @box_host, @plan, @status, @contact_email, @notes, @created_at, @updated_at)
+  `);
+  const clientIds = {};
+  for (const c of SEED_CLIENTS) {
+    const clientId = makeId("client");
+    clientIds[c.name] = clientId;
+    insertClient.run({
+      id: clientId,
+      name: c.name,
+      box_host: c.box_host,
+      plan: c.plan,
+      status: c.status,
+      contact_email: c.contact_email,
+      notes: c.notes,
+      created_at: now,
+      updated_at: now,
+    });
+  }
+
+  const insertDeliverable = db.prepare(`
+    INSERT INTO deliverables (id, client_id, name, type, url, status, deployed_at, notes, created_at)
+    VALUES (@id, @client_id, @name, @type, @url, @status, @deployed_at, @notes, @created_at)
+  `);
+  for (const d of SEED_DELIVERABLES) {
+    const clientId = clientIds[d.client];
+    if (!clientId) continue;
+    insertDeliverable.run({
+      id: makeId("deliv"),
+      client_id: clientId,
+      name: d.name,
+      type: d.type,
+      url: d.url,
+      status: d.status,
+      deployed_at: now,
+      notes: "",
+      created_at: now,
+    });
+  }
+
   const insertProject = db.prepare(`
-    INSERT INTO projects (id, name, type, client_name, domain, status, phase_index, priority, revenue_potential, last_update, next_action, created_at, updated_at)
-    VALUES (@id, @name, @type, @client_name, @domain, @status, @phase_index, @priority, @revenue_potential, @last_update, @next_action, @created_at, @updated_at)
+    INSERT INTO projects (id, name, type, client_name, client_id, domain, status, phase_index, priority, revenue_potential, last_update, next_action, created_at, updated_at)
+    VALUES (@id, @name, @type, @client_name, @client_id, @domain, @status, @phase_index, @priority, @revenue_potential, @last_update, @next_action, @created_at, @updated_at)
   `);
   const insertPhase = db.prepare(`
     INSERT INTO phases (id, project_id, name, status, notes, updated_at)
@@ -281,6 +408,7 @@ function seedIfEmpty(db) {
         name: p.name,
         type: p.type,
         client_name: p.client_name ?? null,
+        client_id: p.client ? clientIds[p.client] ?? null : null,
         domain: p.domain ?? null,
         status: p.status,
         phase_index: p.phase_index,
@@ -311,8 +439,8 @@ function seedIfEmpty(db) {
   }
 
   const insertAgent = db.prepare(`
-    INSERT INTO agents (id, name, role, status, last_seen, current_task, sessions_today, token_usage_month)
-    VALUES (@id, @name, @role, @status, @last_seen, @current_task, @sessions_today, @token_usage_month)
+    INSERT INTO agents (id, name, role, status, last_seen, current_task, sessions_today, token_usage_month, client_id)
+    VALUES (@id, @name, @role, @status, @last_seen, @current_task, @sessions_today, @token_usage_month, @client_id)
   `);
   const agentIds = {};
   for (const a of SEED_AGENTS) {
@@ -327,6 +455,7 @@ function seedIfEmpty(db) {
       current_task: a.current_task,
       sessions_today: a.name === "VPS Hermes" ? 2 : 0,
       token_usage_month: a.name === "VPS Hermes" ? 48000 : 0,
+      client_id: a.client ? clientIds[a.client] ?? null : null,
     });
   }
 
@@ -377,8 +506,8 @@ function seedIfEmpty(db) {
   }
 
   const insertSite = db.prepare(`
-    INSERT INTO sites (id, name, url, status, last_check, http_code, notes)
-    VALUES (@id, @name, @url, @status, @last_check, @http_code, @notes)
+    INSERT INTO sites (id, name, url, status, last_check, http_code, notes, client_id)
+    VALUES (@id, @name, @url, @status, @last_check, @http_code, @notes, @client_id)
   `);
   for (const s of SEED_SITES) {
     insertSite.run({
@@ -389,6 +518,7 @@ function seedIfEmpty(db) {
       last_check: null,
       http_code: null,
       notes: "",
+      client_id: s.client ? clientIds[s.client] ?? null : null,
     });
   }
 
