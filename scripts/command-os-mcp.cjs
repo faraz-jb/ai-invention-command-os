@@ -17,6 +17,7 @@ function initDb() {
   try {
     dbInit.initSchema(db);
     dbInit.seedIfEmpty(db);
+  dbInit.seedClientsIfEmpty(db);
   } finally {
     db.close();
   }
