@@ -17,7 +17,8 @@ function initDb() {
   try {
     dbInit.initSchema(db);
     dbInit.seedIfEmpty(db);
-  dbInit.seedClientsIfEmpty(db);
+    dbInit.seedClientsIfEmpty(db);
+    dbInit.ensureClientTokens(db);
   } finally {
     db.close();
   }
@@ -397,6 +398,116 @@ const TOOLS = [
           VALUES (@id, @client_id, @name, @type, @url, @status, @deployed_at, @notes, @created_at)
         `).run(deliverable);
         return deliverable;
+      } finally {
+        db.close();
+      }
+    },
+  },
+  {
+    name: "commands_create",
+    description: "Enqueue a remote-exec command for a client's box (pull-based connect-back)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        client_id: { type: "string" },
+        type: { type: "string", enum: ["restart", "redeploy", "fix", "healthcheck", "custom"] },
+        target: { type: "string" },
+        payload: { type: "string" },
+      },
+      required: ["client_id", "type"],
+    },
+    handler(args) {
+      if (!args.client_id) throw new Error("client_id is required");
+      const types = ["restart", "redeploy", "fix", "healthcheck", "custom"];
+      if (!types.includes(args.type)) throw new Error("invalid type");
+      const db = getDb();
+      try {
+        const client = db.prepare("SELECT id FROM clients WHERE id = ?").get(args.client_id);
+        if (!client) throw new Error("client not found");
+        const now = new Date().toISOString();
+        const command = {
+          id: makeId("cmd"),
+          client_id: args.client_id,
+          type: args.type,
+          target: args.target ? String(args.target) : "",
+          payload: args.payload ? String(args.payload) : "",
+          status: "pending",
+          result: null,
+          error: null,
+          created_at: now,
+          dispatched_at: null,
+          completed_at: null,
+        };
+        db.prepare(`
+          INSERT INTO commands (id, client_id, type, target, payload, status, result, error, created_at, dispatched_at, completed_at)
+          VALUES (@id, @client_id, @type, @target, @payload, @status, @result, @error, @created_at, @dispatched_at, @completed_at)
+        `).run(command);
+        return command;
+      } finally {
+        db.close();
+      }
+    },
+  },
+  {
+    name: "commands_list",
+    description: "List remote-exec commands, optionally filtered by client_id and/or status",
+    inputSchema: {
+      type: "object",
+      properties: {
+        client_id: { type: "string" },
+        status: {
+          type: "string",
+          enum: ["pending", "dispatched", "running", "success", "failed", "timeout"],
+        },
+      },
+    },
+    handler(args) {
+      const db = getDb();
+      try {
+        let query = `
+          SELECT cmd.*, c.name as client_name
+          FROM commands cmd
+          JOIN clients c ON c.id = cmd.client_id
+          WHERE 1=1
+        `;
+        const params = [];
+        if (args.client_id) {
+          query += " AND cmd.client_id = ?";
+          params.push(args.client_id);
+        }
+        if (args.status) {
+          query += " AND cmd.status = ?";
+          params.push(args.status);
+        }
+        query += " ORDER BY cmd.created_at DESC LIMIT 100";
+        return db.prepare(query).all(...params);
+      } finally {
+        db.close();
+      }
+    },
+  },
+  {
+    name: "commands_get",
+    description: "Get a single remote-exec command by id",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+    handler(args) {
+      if (!args.id) throw new Error("id is required");
+      const db = getDb();
+      try {
+        const command = db
+          .prepare(
+            `SELECT cmd.*, c.name as client_name
+             FROM commands cmd
+             JOIN clients c ON c.id = cmd.client_id
+             WHERE cmd.id = ?`
+          )
+          .get(args.id);
+        if (!command) throw new Error("command not found");
+        return command;
       } finally {
         db.close();
       }

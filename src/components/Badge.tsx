@@ -38,6 +38,14 @@ const COLORS: Record<string, string> = {
   live: "bg-success/15 text-success",
   building: "bg-warning/15 text-warning",
   planned: "bg-text-dim/15 text-text-dim",
+  dispatched: "bg-warning/15 text-warning",
+  running: "bg-accent/15 text-accent",
+  timeout: "bg-text-dim/15 text-text-dim",
+  restart: "bg-accent/15 text-accent",
+  redeploy: "bg-success/15 text-success",
+  fix: "bg-warning/15 text-warning",
+  healthcheck: "bg-accent/15 text-accent",
+  custom: "bg-text-dim/15 text-text-dim",
 };
 
 export default function Badge({ children, tone }: { children: React.ReactNode; tone: string }) {

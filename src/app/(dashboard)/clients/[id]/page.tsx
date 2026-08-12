@@ -14,6 +14,7 @@ interface ClientDetail {
   status: string;
   contact_email: string;
   notes: string;
+  client_token: string;
 }
 
 interface DeliverableRow {
@@ -47,6 +48,23 @@ interface SiteRow {
   status: string;
 }
 
+interface CommandRow {
+  id: string;
+  type: string;
+  target: string;
+  status: string;
+  result: string | null;
+  error: string | null;
+  created_at: string;
+}
+
+const COMMAND_TYPES = [
+  { type: "restart", label: "🔄 Restart" },
+  { type: "redeploy", label: "🚀 Redeploy" },
+  { type: "fix", label: "🔧 Fix" },
+  { type: "healthcheck", label: "❤️ Health Check" },
+];
+
 function statusTone(status: string) {
   return status === "done" ? "client_done" : status;
 }
@@ -74,6 +92,11 @@ export default function ClientWorkspacePage() {
   });
   const [showDelivForm, setShowDelivForm] = useState(false);
   const [delivForm, setDelivForm] = useState({ name: "", type: "other", url: "", status: "live" });
+  const [commands, setCommands] = useState<CommandRow[]>([]);
+  const [dispatching, setDispatching] = useState(false);
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customForm, setCustomForm] = useState({ target: "", payload: "" });
+  const [tokenCopied, setTokenCopied] = useState(false);
 
   async function load() {
     const res = await fetch(`/api/clients/${id}`);
@@ -94,10 +117,48 @@ export default function ClientWorkspacePage() {
     setLoading(false);
   }
 
+  async function loadCommands() {
+    const res = await fetch(`/api/commands?client_id=${id}`);
+    const data = await res.json();
+    setCommands(data.commands ?? []);
+  }
+
   useEffect(() => {
-    if (id) load();
+    if (id) {
+      load();
+      loadCommands();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  async function dispatchCommand(type: string, target?: string, payload?: string) {
+    setDispatching(true);
+    try {
+      await fetch("/api/commands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: id, type, target: target ?? "", payload: payload ?? "" }),
+      });
+      await loadCommands();
+    } finally {
+      setDispatching(false);
+    }
+  }
+
+  async function submitCustomCommand(e: React.FormEvent) {
+    e.preventDefault();
+    if (!customForm.payload.trim()) return;
+    await dispatchCommand("custom", customForm.target, customForm.payload);
+    setCustomForm({ target: "", payload: "" });
+    setShowCustomForm(false);
+  }
+
+  function copyToken() {
+    if (!client?.client_token) return;
+    navigator.clipboard.writeText(client.client_token);
+    setTokenCopied(true);
+    setTimeout(() => setTokenCopied(false), 1500);
+  }
 
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault();
@@ -392,6 +453,130 @@ export default function ClientWorkspacePage() {
               {sites.length === 0 && (
                 <tr>
                   <td className="px-4 py-3 text-text-dim text-sm">No sites yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold">Remote Control</h2>
+        <div className="bg-surface border border-border rounded-xl p-4 space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {COMMAND_TYPES.map((c) => (
+              <button
+                key={c.type}
+                disabled={dispatching}
+                onClick={() => dispatchCommand(c.type)}
+                className="text-sm bg-accent/15 text-accent px-3 py-2 rounded-md disabled:opacity-50"
+              >
+                {c.label}
+              </button>
+            ))}
+            <button
+              disabled={dispatching}
+              onClick={() => setShowCustomForm(!showCustomForm)}
+              className="text-sm bg-surface-2 border border-border px-3 py-2 rounded-md disabled:opacity-50"
+            >
+              ⚙️ Custom command
+            </button>
+          </div>
+
+          {showCustomForm && (
+            <form onSubmit={submitCustomCommand} className="grid sm:grid-cols-3 gap-3 items-start">
+              <div className="space-y-1">
+                <label className="text-xs text-text-dim">Target / service</label>
+                <input
+                  value={customForm.target}
+                  onChange={(e) => setCustomForm({ ...customForm, target: e.target.value })}
+                  placeholder="e.g. receptionist"
+                  className="w-full bg-surface-2 border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-accent"
+                />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <label className="text-xs text-text-dim">Command</label>
+                <textarea
+                  value={customForm.payload}
+                  onChange={(e) => setCustomForm({ ...customForm, payload: e.target.value })}
+                  rows={2}
+                  required
+                  placeholder="raw shell command to run on the client box"
+                  className="w-full bg-surface-2 border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-accent font-mono"
+                />
+              </div>
+              <div className="sm:col-span-3 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={dispatching}
+                  className="bg-accent text-bg text-sm font-medium px-4 py-2 rounded-md disabled:opacity-50"
+                >
+                  Queue command
+                </button>
+              </div>
+            </form>
+          )}
+
+          {dispatching && <p className="text-xs text-accent">Command queued...</p>}
+
+          <div className="border-t border-border pt-4 space-y-2">
+            <p className="text-xs text-text-dim uppercase tracking-wide">Agent Connect</p>
+            <p className="text-xs text-text-dim">
+              Run this on the client&apos;s box so it can poll for and execute commands:
+            </p>
+            <div className="flex items-center gap-2 bg-surface-2 border border-border rounded-md px-3 py-2">
+              <code className="text-xs text-text-dim flex-1 overflow-x-auto whitespace-nowrap">
+                COMMAND_OS_URL=https://os.aiinvention.tech CLIENT_TOKEN={client.client_token} node
+                scripts/command-os-client.cjs
+              </code>
+              <button
+                onClick={copyToken}
+                className="text-xs bg-accent/15 text-accent px-2 py-1 rounded-md shrink-0"
+              >
+                {tokenCopied ? "Copied" : "Copy token"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold">Command History</h2>
+        <div className="bg-surface border border-border rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <tbody>
+              {commands.map((c) => (
+                <tr key={c.id} className="border-t border-border first:border-t-0 align-top">
+                  <td className="px-4 py-2">
+                    <Badge tone={c.type}>{c.type}</Badge>
+                  </td>
+                  <td className="px-4 py-2 text-text-dim">{c.target || "—"}</td>
+                  <td className="px-4 py-2">
+                    <Badge tone={c.status}>{c.status}</Badge>
+                  </td>
+                  <td className="px-4 py-2 max-w-xs">
+                    {c.result || c.error ? (
+                      <details title={c.error ?? c.result ?? ""}>
+                        <summary className="text-xs text-text-dim cursor-pointer truncate">
+                          {(c.error ?? c.result ?? "").slice(0, 60)}
+                          {(c.error ?? c.result ?? "").length > 60 ? "…" : ""}
+                        </summary>
+                        <pre className="text-xs text-text-dim whitespace-pre-wrap mt-1">
+                          {c.error ?? c.result}
+                        </pre>
+                      </details>
+                    ) : (
+                      <span className="text-xs text-text-dim">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-text-dim text-xs whitespace-nowrap">
+                    {relativeTime(c.created_at)}
+                  </td>
+                </tr>
+              ))}
+              {commands.length === 0 && (
+                <tr>
+                  <td className="px-4 py-3 text-text-dim text-sm">No commands yet.</td>
                 </tr>
               )}
             </tbody>

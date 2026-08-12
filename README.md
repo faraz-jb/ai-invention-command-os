@@ -20,9 +20,9 @@ Self-hosted control dashboard for AI agents, projects, sites, and revenue.
 |---|---|
 | ![Tasks](docs/screenshots/tasks.png) | ![Sites](docs/screenshots/sites.png) |
 
-| Revenue |
-|---|
-| ![Revenue](docs/screenshots/revenue.png) |
+| Revenue | Remote Control |
+|---|---|
+| ![Revenue](docs/screenshots/revenue.png) | ![Remote Control](docs/screenshots/remote-control.png) |
 
 ## What It Does
 
@@ -45,6 +45,11 @@ Self-hosted control dashboard for AI agents, projects, sites, and revenue.
 **Multi-Client Tenancy**
 - Every client gets a workspace — their own box, agents, projects, sites, and deliverables
 - Client agents (e.g. a receptionist) are kept separate from internal (VPS/Laptop) agents
+
+**Remote-Exec / Command Queue**
+- Restart, redeploy, fix, health-check, or run a custom command on any client's box
+- Pull-based connect-back — the client box polls with its own token, executes, and reports the result. Command OS never holds SSH credentials for client boxes
+- Full command history per client with status, result, and timing
 
 ## Quick Start
 
@@ -74,9 +79,9 @@ Any AI agent can connect to Command OS as an MCP server over stdio:
 node scripts/command-os-mcp.cjs
 ```
 
-The server initializes its own database on first run — no need to start the Next.js app first. It exposes 14 tools:
+The server initializes its own database on first run — no need to start the Next.js app first. It exposes 17 tools:
 
-`tasks_list` · `tasks_create` · `tasks_update` · `projects_list` · `agents_list` · `agents_heartbeat` · `sites_list` · `sites_check` · `crons_list` · `revenue_list` · `clients_list` · `clients_get` · `deliverables_list` · `deliverables_create`
+`tasks_list` · `tasks_create` · `tasks_update` · `projects_list` · `agents_list` · `agents_heartbeat` · `sites_list` · `sites_check` · `crons_list` · `revenue_list` · `clients_list` · `clients_get` · `deliverables_list` · `deliverables_create` · `commands_create` · `commands_list` · `commands_get`
 
 ## What's Inside
 
@@ -91,6 +96,7 @@ The server initializes its own database on first run — no need to start the Ne
 | `cron_jobs` | Scheduled automation health |
 | `sessions` | Agent work sessions with token usage |
 | `revenue` | Real income entries by source — no mock data, ever |
+| `commands` | Remote-exec command queue — restart/redeploy/fix/healthcheck/custom, dispatched to client boxes via connect-back |
 
 ## Who Is This For
 

@@ -25,6 +25,7 @@ const SCHEMA_SQL = `
     status TEXT NOT NULL DEFAULT 'active',
     contact_email TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
+    client_token TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -146,6 +147,20 @@ const SCHEMA_SQL = `
     summary TEXT,
     created_at TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS commands (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    target TEXT NOT NULL DEFAULT '',
+    payload TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    result TEXT,
+    error TEXT,
+    created_at TEXT NOT NULL,
+    dispatched_at TEXT,
+    completed_at TEXT
+  );
 `;
 
 function ensureDataDir() {
@@ -168,12 +183,24 @@ function initSchema(db) {
   ensureColumn(db, "agents", "client_id", "TEXT");
   ensureColumn(db, "projects", "client_id", "TEXT");
   ensureColumn(db, "sites", "client_id", "TEXT");
+  ensureColumn(db, "clients", "client_token", "TEXT");
 
   const existing = db.prepare("SELECT value FROM settings WHERE key = 'session_secret'").get();
   if (!existing) {
     const secret = randomBytes(32).toString("hex");
     db.prepare("INSERT INTO settings (key, value) VALUES ('session_secret', ?)").run(secret);
   }
+}
+
+function newClientToken() {
+  return "cos_" + randomBytes(24).toString("hex");
+}
+
+function ensureClientTokens(db) {
+  const rows = db.prepare("SELECT id FROM clients WHERE client_token IS NULL OR client_token = ''").all();
+  const upd = db.prepare("UPDATE clients SET client_token = ? WHERE id = ?");
+  for (const r of rows) upd.run(newClientToken(), r.id);
+  return rows.length;
 }
 
 const PHASE_LABELS = ["Idea", "Research", "Design", "Build", "Deploy", "SEO", "Launch", "Scale", "Done"];
@@ -350,8 +377,8 @@ function seedIfEmpty(db) {
   const now = new Date().toISOString();
 
   const insertClient = db.prepare(`
-    INSERT INTO clients (id, name, box_host, plan, status, contact_email, notes, created_at, updated_at)
-    VALUES (@id, @name, @box_host, @plan, @status, @contact_email, @notes, @created_at, @updated_at)
+    INSERT INTO clients (id, name, box_host, plan, status, contact_email, notes, client_token, created_at, updated_at)
+    VALUES (@id, @name, @box_host, @plan, @status, @contact_email, @notes, @client_token, @created_at, @updated_at)
   `);
   const clientIds = {};
   for (const c of SEED_CLIENTS) {
@@ -365,6 +392,7 @@ function seedIfEmpty(db) {
       status: c.status,
       contact_email: c.contact_email,
       notes: c.notes,
+      client_token: newClientToken(),
       created_at: now,
       updated_at: now,
     });
@@ -551,14 +579,14 @@ function seedClientsIfEmpty(db) {
   if (count === 0) {
     const now = new Date().toISOString();
     const insertClient = db.prepare(`
-      INSERT INTO clients (id, name, box_host, plan, status, contact_email, notes, created_at, updated_at)
-      VALUES (@id, @name, @box_host, @plan, @status, @contact_email, @notes, @created_at, @updated_at)
+      INSERT INTO clients (id, name, box_host, plan, status, contact_email, notes, client_token, created_at, updated_at)
+      VALUES (@id, @name, @box_host, @plan, @status, @contact_email, @notes, @client_token, @created_at, @updated_at)
     `);
     const clientIds = {};
     for (const c of SEED_CLIENTS) {
       const clientId = makeId("client");
       clientIds[c.name] = clientId;
-      insertClient.run({ id: clientId, name: c.name, box_host: c.box_host, plan: c.plan, status: c.status, contact_email: c.contact_email, notes: c.notes, created_at: now, updated_at: now });
+      insertClient.run({ id: clientId, name: c.name, box_host: c.box_host, plan: c.plan, status: c.status, contact_email: c.contact_email, notes: c.notes, client_token: newClientToken(), created_at: now, updated_at: now });
     }
     const insertDeliverable = db.prepare(`
       INSERT INTO deliverables (id, client_id, name, type, url, status, deployed_at, notes, created_at)
@@ -590,4 +618,15 @@ function seedClientsIfEmpty(db) {
   linkSite("%opsync.tech%", "Opsync");
 }
 
-module.exports = { ensureDataDir, initSchema, seedIfEmpty, seedClientsIfEmpty, makeId, DB_PATH, DATA_DIR, PHASE_LABELS };
+module.exports = {
+  ensureDataDir,
+  initSchema,
+  seedIfEmpty,
+  seedClientsIfEmpty,
+  ensureClientTokens,
+  newClientToken,
+  makeId,
+  DB_PATH,
+  DATA_DIR,
+  PHASE_LABELS,
+};

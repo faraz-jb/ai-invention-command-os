@@ -41,8 +41,26 @@ export interface Client {
   status: ClientStatus;
   contact_email: string;
   notes: string;
+  client_token: string;
   created_at: string;
   updated_at: string;
+}
+
+export type CommandType = "restart" | "redeploy" | "fix" | "healthcheck" | "custom";
+export type CommandStatus = "pending" | "dispatched" | "running" | "success" | "failed" | "timeout";
+
+export interface Command {
+  id: string;
+  client_id: string;
+  type: CommandType;
+  target: string;
+  payload: string;
+  status: CommandStatus;
+  result: string | null;
+  error: string | null;
+  created_at: string;
+  dispatched_at: string | null;
+  completed_at: string | null;
 }
 
 export type DeliverableType =
