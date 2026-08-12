@@ -24,9 +24,18 @@ interface CronRow {
   next_run: string | null;
 }
 
+interface CiStatusRow {
+  repo: string;
+  workflow: string | null;
+  status: string;
+  timestamp: string | null;
+}
+
 export default function SitesPage() {
   const [sites, setSites] = useState<SiteRow[]>([]);
   const [crons, setCrons] = useState<CronRow[]>([]);
+  const [ciStatus, setCiStatus] = useState<CiStatusRow[]>([]);
+  const [ciLoading, setCiLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,6 +51,10 @@ export default function SitesPage() {
 
   useEffect(() => {
     load();
+    fetch("/api/ci-status")
+      .then((r) => r.json())
+      .then((data) => setCiStatus(data.repos ?? []))
+      .finally(() => setCiLoading(false));
   }, []);
 
   async function checkAll() {
@@ -165,6 +178,67 @@ export default function SitesPage() {
                         No cron jobs yet.
                       </td>
                     </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold">CI Status</h2>
+              <p className="text-text-dim text-sm">Latest GitHub Actions run per repo</p>
+            </div>
+            <div className="bg-surface border border-border rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-surface-2 text-text-dim text-xs uppercase tracking-wide">
+                  <tr>
+                    <th className="text-left px-4 py-2 font-medium">Repo</th>
+                    <th className="text-left px-4 py-2 font-medium">Workflow</th>
+                    <th className="text-left px-4 py-2 font-medium">Status</th>
+                    <th className="text-left px-4 py-2 font-medium">Last run</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ciLoading ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-3 text-text-dim text-sm">
+                        Loading CI status...
+                      </td>
+                    </tr>
+                  ) : (
+                    ciStatus.map((c) => (
+                      <tr key={c.repo} className="border-t border-border">
+                        <td className="px-4 py-2">
+                          <a
+                            href={`https://github.com/${c.repo}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-accent hover:underline"
+                          >
+                            {c.repo}
+                          </a>
+                        </td>
+                        <td className="px-4 py-2 text-text-dim">{c.workflow ?? "—"}</td>
+                        <td className="px-4 py-2">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span
+                              className={`h-2 w-2 rounded-full shrink-0 ${
+                                c.status === "success"
+                                  ? "bg-success"
+                                  : c.status === "failure"
+                                  ? "bg-danger"
+                                  : c.status === "pending"
+                                  ? "bg-warning"
+                                  : "bg-text-dim/50"
+                              }`}
+                            />
+                            <Badge tone={c.status}>{c.status}</Badge>
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-text-dim">{relativeTime(c.timestamp)}</td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>

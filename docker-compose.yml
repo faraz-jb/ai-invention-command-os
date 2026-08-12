@@ -1,0 +1,12 @@
+services:
+  command-os:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - command-os-data:/app/data
+    restart: unless-stopped
+    # VPS: add traefik labels here per deployment
+
+volumes:
+  command-os-data:

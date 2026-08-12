@@ -1,23 +1,25 @@
 #!/usr/bin/env node
 "use strict";
 
-const { DatabaseSync } = require("node:sqlite");
-const path = require("path");
-const fs = require("fs");
 const readline = require("readline");
-const { randomUUID } = require("crypto");
-
-const DB_PATH = path.join(__dirname, "..", "data", "command-os.db");
-
-function makeId(prefix) {
-  return `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
-}
+const { DatabaseSync } = require("node:sqlite");
+const dbInit = require("./db-init.cjs");
+const { makeId } = dbInit;
 
 function getDb() {
-  if (!fs.existsSync(path.dirname(DB_PATH))) {
-    throw new Error(`data directory not found at ${path.dirname(DB_PATH)} — run the Next.js app once to initialize the DB`);
+  dbInit.ensureDataDir();
+  return new DatabaseSync(dbInit.DB_PATH);
+}
+
+function initDb() {
+  dbInit.ensureDataDir();
+  const db = new DatabaseSync(dbInit.DB_PATH);
+  try {
+    dbInit.initSchema(db);
+    dbInit.seedIfEmpty(db);
+  } finally {
+    db.close();
   }
-  return new DatabaseSync(DB_PATH);
 }
 
 const TASK_AGENTS = ["vps", "laptop", "faraz", "none"];
@@ -339,6 +341,8 @@ async function handleRequest(req) {
 
   send({ jsonrpc: "2.0", id, error: { code: -32601, message: `unknown method: ${method}` } });
 }
+
+initDb();
 
 const rl = readline.createInterface({ input: process.stdin, terminal: false });
 

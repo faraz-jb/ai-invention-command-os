@@ -2,13 +2,49 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { makeId } from "@/lib/id";
 import type { RevenueSource } from "@/lib/types";
+import { getStripeRevenue } from "@/lib/stripe";
 
 const SOURCES = ["stripe", "gumroad", "adsense", "manual"];
 
-export async function GET() {
+function monthRange(month: string | null): { start: string; end: string } {
+  const now = new Date();
+  const [year, mon] = month && /^\d{4}-\d{2}$/.test(month)
+    ? month.split("-").map(Number)
+    : [now.getFullYear(), now.getMonth() + 1];
+  const start = new Date(year, mon - 1, 1).toISOString();
+  const end = new Date(year, mon, 1).toISOString();
+  return { start, end };
+}
+
+export async function GET(req: NextRequest) {
   const db = getDb();
-  const revenue = db.prepare("SELECT * FROM revenue ORDER BY date DESC").all();
-  return NextResponse.json({ revenue });
+  const month = req.nextUrl.searchParams.get("month");
+  const { start, end } = monthRange(month);
+
+  const revenue = db
+    .prepare("SELECT * FROM revenue WHERE date >= ? AND date < ? ORDER BY date DESC")
+    .all(start, end) as { id: string; source: string; amount: number; currency: string; date: string; description: string }[];
+
+  const stripeLive = await getStripeRevenue();
+  const merged = stripeLive ? [...stripeLive, ...revenue] : revenue;
+
+  const monthTotal = merged.reduce((sum, r) => sum + r.amount, 0);
+  const bySource: Record<string, number> = {};
+  for (const r of merged) {
+    bySource[r.source] = (bySource[r.source] ?? 0) + r.amount;
+  }
+
+  const allTimeTotal = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM revenue").get() as {
+    total: number;
+  };
+
+  return NextResponse.json({
+    revenue: merged,
+    month: month ?? `${new Date(start).getFullYear()}-${String(new Date(start).getMonth() + 1).padStart(2, "0")}`,
+    month_total: monthTotal,
+    total_revenue: allTimeTotal.total + (stripeLive ? stripeLive.reduce((s, r) => s + r.amount, 0) : 0),
+    by_source: bySource,
+  });
 }
 
 export async function POST(req: NextRequest) {

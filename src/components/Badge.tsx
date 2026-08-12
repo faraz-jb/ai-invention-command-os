@@ -24,6 +24,13 @@ const COLORS: Record<string, string> = {
   vps: "bg-accent/15 text-accent",
   laptop: "bg-success/15 text-success",
   faraz: "bg-warning/15 text-warning",
+  stripe: "bg-accent/15 text-accent",
+  gumroad: "bg-warning/15 text-warning",
+  adsense: "bg-success/15 text-success",
+  manual: "bg-text-dim/15 text-text-dim",
+  success: "bg-success/15 text-success",
+  failure: "bg-danger/15 text-danger",
+  unavailable: "bg-text-dim/15 text-text-dim",
 };
 
 export default function Badge({ children, tone }: { children: React.ReactNode; tone: string }) {

@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/tasks", label: "Tasks" },
   { href: "/agents", label: "Agents" },
   { href: "/sites", label: "Sites" },
+  { href: "/revenue", label: "Revenue" },
 ];
 
 export default function Nav() {

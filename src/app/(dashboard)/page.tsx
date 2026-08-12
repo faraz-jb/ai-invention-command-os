@@ -62,10 +62,13 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="bg-surface border border-border rounded-xl p-4">
+      <Link
+        href="/revenue"
+        className="block bg-surface border border-border rounded-xl p-4 hover:border-accent/50 transition-colors"
+      >
         <p className="text-text-dim text-xs uppercase tracking-wide">Revenue this month</p>
         <p className="text-2xl font-semibold mt-1 text-success">{formatMoney(data.revenue_total)}</p>
-      </div>
+      </Link>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-surface border border-border rounded-xl p-4">
