@@ -5,6 +5,8 @@ out/
 .env.local
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 npm-debug.log*
 .DS_Store
 *.pem

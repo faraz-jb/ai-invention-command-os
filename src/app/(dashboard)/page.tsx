@@ -11,7 +11,18 @@ interface DashboardData {
   recent_projects: { id: string; name: string; type: string; status: string; priority: string; next_action: string }[];
   recent_tasks: { id: string; title: string; agent: string; status: string; priority: string }[];
   agent_statuses: { id: string; name: string; role: string; status: string; last_seen: string; current_task: string | null }[];
+  cronsHealthy: number;
+  cronsFailed: number;
+  sessionsToday: number;
+  tasksByStatus: { status: string; count: number }[];
 }
+
+const STATUS_LABELS: Record<string, string> = {
+  todo: "Todo",
+  in_progress: "In Progress",
+  review: "Review",
+  done: "Done",
+};
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -54,6 +65,43 @@ export default function DashboardPage() {
       <div className="bg-surface border border-border rounded-xl p-4">
         <p className="text-text-dim text-xs uppercase tracking-wide">Revenue this month</p>
         <p className="text-2xl font-semibold mt-1 text-success">{formatMoney(data.revenue_total)}</p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-surface border border-border rounded-xl p-4">
+          <p className="text-text-dim text-xs uppercase tracking-wide">Crons Healthy</p>
+          <p className="text-3xl font-semibold mt-1 text-success">{data.cronsHealthy}</p>
+        </div>
+        <div className="bg-surface border border-border rounded-xl p-4">
+          <p className="text-text-dim text-xs uppercase tracking-wide">Crons Failed</p>
+          <p className="text-3xl font-semibold mt-1 text-danger">{data.cronsFailed}</p>
+        </div>
+        <div className="bg-surface border border-border rounded-xl p-4">
+          <p className="text-text-dim text-xs uppercase tracking-wide">Sessions Today</p>
+          <p className="text-3xl font-semibold mt-1 text-accent">{data.sessionsToday}</p>
+        </div>
+        <div className="bg-surface border border-border rounded-xl p-4">
+          <p className="text-text-dim text-xs uppercase tracking-wide mb-2">Tasks by Status</p>
+          <div className="space-y-1">
+            {data.tasksByStatus.map((t) => (
+              <div key={t.status} className="flex items-center gap-2 text-xs">
+                <span className="w-16 text-text-dim shrink-0">{STATUS_LABELS[t.status] ?? t.status}</span>
+                <div className="flex-1 bg-surface-2 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="h-full bg-accent rounded-full"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (t.count / Math.max(1, Math.max(...data.tasksByStatus.map((x) => x.count)))) * 100
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <span className="text-text-dim shrink-0">{t.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">

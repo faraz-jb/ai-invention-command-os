@@ -93,3 +93,28 @@ export interface Revenue {
   date: string;
   description: string;
 }
+
+export type CronStatus = "ok" | "failed" | "never";
+
+export interface CronJob {
+  id: string;
+  name: string;
+  schedule: string;
+  agent: string;
+  status: CronStatus;
+  last_run: string | null;
+  last_message: string | null;
+  next_run: string | null;
+  created_at: string;
+}
+
+export interface Session {
+  id: string;
+  agent_id: string;
+  task_id: string | null;
+  started_at: string;
+  ended_at: string | null;
+  tokens_used: number;
+  summary: string | null;
+  created_at: string;
+}

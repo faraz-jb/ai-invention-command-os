@@ -16,10 +16,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     | undefined;
   if (!existing) return NextResponse.json({ error: "task not found" }, { status: 404 });
 
+  const agentValue = body.agent !== undefined ? body.agent : body.assignee;
+
   if (body.status !== undefined && !STATUSES.includes(body.status)) {
     return NextResponse.json({ error: "invalid status" }, { status: 400 });
   }
-  if (body.agent !== undefined && !AGENTS.includes(body.agent)) {
+  if (agentValue !== undefined && !AGENTS.includes(agentValue)) {
     return NextResponse.json({ error: "invalid agent" }, { status: 400 });
   }
   if (body.priority !== undefined && !PRIORITIES.includes(body.priority)) {
@@ -30,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const updated = {
     id,
     title: body.title !== undefined ? String(body.title) : (existing.title as string),
-    agent: body.agent ?? (existing.agent as string),
+    agent: agentValue ?? (existing.agent as string),
     status: body.status ?? (existing.status as string),
     priority: body.priority ?? (existing.priority as string),
     due_date: body.due_date !== undefined ? (body.due_date ? String(body.due_date) : null) : (existing.due_date as string | null),

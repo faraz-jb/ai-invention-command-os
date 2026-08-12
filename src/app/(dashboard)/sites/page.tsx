@@ -13,15 +13,30 @@ interface SiteRow {
   http_code: number | null;
 }
 
+interface CronRow {
+  id: string;
+  name: string;
+  schedule: string;
+  agent: string;
+  status: string;
+  last_run: string | null;
+  last_message: string | null;
+  next_run: string | null;
+}
+
 export default function SitesPage() {
   const [sites, setSites] = useState<SiteRow[]>([]);
+  const [crons, setCrons] = useState<CronRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   async function load() {
-    const res = await fetch("/api/sites");
-    const data = await res.json();
-    setSites(data.sites);
+    const [sitesRes, cronsRes] = await Promise.all([fetch("/api/sites"), fetch("/api/crons")]);
+    const sitesData = await sitesRes.json();
+    const cronsData = await cronsRes.json();
+    setSites(sitesData.sites);
+    setCrons(cronsData.crons);
     setLoading(false);
   }
 
@@ -37,8 +52,16 @@ export default function SitesPage() {
     setChecking(false);
   }
 
+  async function refreshCrons() {
+    setRefreshing(true);
+    const res = await fetch("/api/crons/check", { method: "POST" });
+    const data = await res.json();
+    setCrons(data.crons);
+    setRefreshing(false);
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-semibold">Sites</h1>
@@ -56,41 +79,98 @@ export default function SitesPage() {
       {loading ? (
         <p className="text-text-dim">Loading sites...</p>
       ) : (
-        <div className="bg-surface border border-border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-2 text-text-dim text-xs uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-4 py-2 font-medium">Name</th>
-                <th className="text-left px-4 py-2 font-medium">URL</th>
-                <th className="text-left px-4 py-2 font-medium">Status</th>
-                <th className="text-left px-4 py-2 font-medium">HTTP</th>
-                <th className="text-left px-4 py-2 font-medium">Last check</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sites.map((s) => (
-                <tr key={s.id} className="border-t border-border">
-                  <td className="px-4 py-2">{s.name}</td>
-                  <td className="px-4 py-2">
-                    <a
-                      href={s.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-accent hover:underline"
-                    >
-                      {s.url}
-                    </a>
-                  </td>
-                  <td className="px-4 py-2">
-                    <Badge tone={s.status}>{s.status}</Badge>
-                  </td>
-                  <td className="px-4 py-2 text-text-dim">{s.http_code ?? "—"}</td>
-                  <td className="px-4 py-2 text-text-dim">{relativeTime(s.last_check)}</td>
+        <>
+          <div className="bg-surface border border-border rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-2 text-text-dim text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="text-left px-4 py-2 font-medium">Name</th>
+                  <th className="text-left px-4 py-2 font-medium">URL</th>
+                  <th className="text-left px-4 py-2 font-medium">Status</th>
+                  <th className="text-left px-4 py-2 font-medium">HTTP</th>
+                  <th className="text-left px-4 py-2 font-medium">Last check</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {sites.map((s) => (
+                  <tr key={s.id} className="border-t border-border">
+                    <td className="px-4 py-2">{s.name}</td>
+                    <td className="px-4 py-2">
+                      <a
+                        href={s.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-accent hover:underline"
+                      >
+                        {s.url}
+                      </a>
+                    </td>
+                    <td className="px-4 py-2">
+                      <Badge tone={s.status}>{s.status}</Badge>
+                    </td>
+                    <td className="px-4 py-2 text-text-dim">{s.http_code ?? "—"}</td>
+                    <td className="px-4 py-2 text-text-dim">{relativeTime(s.last_check)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">Cron Jobs</h2>
+                <p className="text-text-dim text-sm">Scheduled automation health</p>
+              </div>
+              <button
+                onClick={refreshCrons}
+                disabled={refreshing}
+                className="bg-accent text-bg text-sm font-medium px-4 py-2 rounded-md disabled:opacity-50"
+              >
+                {refreshing ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
+            <div className="bg-surface border border-border rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-surface-2 text-text-dim text-xs uppercase tracking-wide">
+                  <tr>
+                    <th className="text-left px-4 py-2 font-medium">Name</th>
+                    <th className="text-left px-4 py-2 font-medium">Schedule</th>
+                    <th className="text-left px-4 py-2 font-medium">Agent</th>
+                    <th className="text-left px-4 py-2 font-medium">Status</th>
+                    <th className="text-left px-4 py-2 font-medium">Last run</th>
+                    <th className="text-left px-4 py-2 font-medium">Message</th>
+                    <th className="text-left px-4 py-2 font-medium">Next run</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {crons.map((c) => (
+                    <tr key={c.id} className="border-t border-border">
+                      <td className="px-4 py-2">{c.name}</td>
+                      <td className="px-4 py-2 text-text-dim font-mono text-xs">{c.schedule}</td>
+                      <td className="px-4 py-2">
+                        <Badge tone={c.agent}>{c.agent}</Badge>
+                      </td>
+                      <td className="px-4 py-2">
+                        <Badge tone={c.status}>{c.status}</Badge>
+                      </td>
+                      <td className="px-4 py-2 text-text-dim">{relativeTime(c.last_run)}</td>
+                      <td className="px-4 py-2 text-text-dim truncate max-w-[12rem]">{c.last_message ?? "—"}</td>
+                      <td className="px-4 py-2 text-text-dim">{relativeTime(c.next_run)}</td>
+                    </tr>
+                  ))}
+                  {crons.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-3 text-text-dim text-sm">
+                        No cron jobs yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -120,6 +120,29 @@ function initSchema(db: DbHandle) {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS cron_jobs (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      schedule TEXT NOT NULL,
+      agent TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'never',
+      last_run TEXT,
+      last_message TEXT,
+      next_run TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+      task_id TEXT,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      tokens_used INTEGER NOT NULL DEFAULT 0,
+      summary TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
 
   const existing = db.prepare("SELECT value FROM settings WHERE key = 'session_secret'").get();

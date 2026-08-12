@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const agent = searchParams.get("agent");
   const status = searchParams.get("status");
+  const search = searchParams.get("search");
 
   const db = getDb();
   let query = "SELECT * FROM tasks WHERE 1=1";
@@ -21,6 +22,10 @@ export async function GET(req: NextRequest) {
   if (status && STATUSES.includes(status)) {
     query += " AND status = ?";
     args.push(status);
+  }
+  if (search && search.trim()) {
+    query += " AND title LIKE ?";
+    args.push(`%${search.trim()}%`);
   }
   query += " ORDER BY updated_at DESC";
 

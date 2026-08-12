@@ -44,6 +44,18 @@ export async function GET() {
     .prepare("SELECT id, title, agent, status, priority FROM tasks ORDER BY updated_at DESC LIMIT 8")
     .all();
 
+  const cronsHealthy = db
+    .prepare("SELECT COUNT(*) as count FROM cron_jobs WHERE status = 'ok' OR status = 'never'")
+    .get() as { count: number };
+  const cronsFailed = db
+    .prepare("SELECT COUNT(*) as count FROM cron_jobs WHERE status = 'failed'")
+    .get() as { count: number };
+
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const sessionsToday = db
+    .prepare("SELECT COUNT(*) as count FROM sessions WHERE started_at >= ?")
+    .get(todayStart) as { count: number };
+
   return NextResponse.json({
     project_counts: projectCounts,
     task_counts: taskCounts,
@@ -58,5 +70,9 @@ export async function GET() {
     },
     recent_projects: recentProjects,
     recent_tasks: recentTasks,
+    cronsHealthy: cronsHealthy.count,
+    cronsFailed: cronsFailed.count,
+    sessionsToday: sessionsToday.count,
+    tasksByStatus: taskCounts,
   });
 }

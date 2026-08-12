@@ -127,6 +127,13 @@ const SEED_TASKS: { title: string; agent: TaskAgent; status: TaskStatus; priorit
   { title: "PRO client portal upgrade", agent: "laptop", status: "todo", priority: "medium" },
 ];
 
+const SEED_CRONS = [
+  { name: "Daily briefing", schedule: "0 9 * * *", agent: "vps" },
+  { name: "Property inspection reminder", schedule: "45 9 * * *", agent: "vps" },
+  { name: "Supabase health check", schedule: "*/30 * * * *", agent: "vps" },
+  { name: "LinkedIn poster", schedule: "0 10 * * 1-5", agent: "laptop" },
+];
+
 export function seedIfEmpty(db: DbHandle) {
   const { count } = db.prepare("SELECT COUNT(*) as count FROM projects").get() as { count: number };
   if (count > 0) return;
@@ -180,16 +187,65 @@ export function seedIfEmpty(db: DbHandle) {
     INSERT INTO agents (id, name, role, status, last_seen, current_task, sessions_today, token_usage_month)
     VALUES (@id, @name, @role, @status, @last_seen, @current_task, @sessions_today, @token_usage_month)
   `);
+  const agentIds: Record<string, string> = {};
   for (const a of SEED_AGENTS) {
+    const agentId = makeId("agent");
+    agentIds[a.name] = agentId;
     insertAgent.run({
-      id: makeId("agent"),
+      id: agentId,
       name: a.name,
       role: a.role,
       status: a.status,
       last_seen: now,
       current_task: a.current_task,
-      sessions_today: 0,
-      token_usage_month: 0,
+      sessions_today: a.name === "VPS Hermes" ? 2 : 0,
+      token_usage_month: a.name === "VPS Hermes" ? 48000 : 0,
+    });
+  }
+
+  const insertCron = db.prepare(`
+    INSERT INTO cron_jobs (id, name, schedule, agent, status, last_run, last_message, next_run, created_at)
+    VALUES (@id, @name, @schedule, @agent, @status, @last_run, @last_message, @next_run, @created_at)
+  `);
+  for (const c of SEED_CRONS) {
+    insertCron.run({
+      id: makeId("cron"),
+      name: c.name,
+      schedule: c.schedule,
+      agent: c.agent,
+      status: "ok",
+      last_run: now,
+      last_message: "completed successfully",
+      next_run: null,
+      created_at: now,
+    });
+  }
+
+  const vpsAgentId = agentIds["VPS Hermes"];
+  if (vpsAgentId) {
+    const insertSession = db.prepare(`
+      INSERT INTO sessions (id, agent_id, task_id, started_at, ended_at, tokens_used, summary, created_at)
+      VALUES (@id, @agent_id, @task_id, @started_at, @ended_at, @tokens_used, @summary, @created_at)
+    `);
+    insertSession.run({
+      id: makeId("sess"),
+      agent_id: vpsAgentId,
+      task_id: null,
+      started_at: now,
+      ended_at: now,
+      tokens_used: 18000,
+      summary: "Daily briefing + inspection reminder run",
+      created_at: now,
+    });
+    insertSession.run({
+      id: makeId("sess"),
+      agent_id: vpsAgentId,
+      task_id: null,
+      started_at: now,
+      ended_at: null,
+      tokens_used: 30000,
+      summary: "Project pipeline build",
+      created_at: now,
     });
   }
 
