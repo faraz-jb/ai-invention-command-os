@@ -45,6 +45,7 @@ function createConnection(): DbHandle {
   const raw = new DatabaseSync(dbInit.DB_PATH);
   dbInit.initSchema(raw);
   dbInit.seedIfEmpty(raw);
+  dbInit.seedClientsIfEmpty(raw);
   return new DbHandle(raw);
 }
 
