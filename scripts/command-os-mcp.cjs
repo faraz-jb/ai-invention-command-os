@@ -18,6 +18,7 @@ function initDb() {
     dbInit.initSchema(db);
     dbInit.seedIfEmpty(db);
     dbInit.seedClientsIfEmpty(db);
+    dbInit.seedServicesIfEmpty(db);
     dbInit.ensureClientTokens(db);
   } finally {
     db.close();
@@ -330,6 +331,7 @@ const TOOLS = [
             .prepare("SELECT * FROM projects WHERE client_id = ? ORDER BY updated_at DESC")
             .all(args.id),
           sites: db.prepare("SELECT * FROM sites WHERE client_id = ? ORDER BY name ASC").all(args.id),
+          services: db.prepare("SELECT * FROM services WHERE client_id = ? ORDER BY name ASC").all(args.id),
         };
       } finally {
         db.close();
@@ -398,6 +400,66 @@ const TOOLS = [
           VALUES (@id, @client_id, @name, @type, @url, @status, @deployed_at, @notes, @created_at)
         `).run(deliverable);
         return deliverable;
+      } finally {
+        db.close();
+      }
+    },
+  },
+  {
+    name: "services_list",
+    description: "List client infra services (docker containers), optionally filtered by client_id",
+    inputSchema: {
+      type: "object",
+      properties: { client_id: { type: "string" } },
+    },
+    handler(args) {
+      const db = getDb();
+      try {
+        if (args.client_id) {
+          return db.prepare("SELECT * FROM services WHERE client_id = ? ORDER BY name ASC").all(args.client_id);
+        }
+        return db.prepare("SELECT * FROM services ORDER BY name ASC").all();
+      } finally {
+        db.close();
+      }
+    },
+  },
+  {
+    name: "services_create",
+    description: "Create a client infra service (docker container) for remote control",
+    inputSchema: {
+      type: "object",
+      properties: {
+        client_id: { type: "string" },
+        name: { type: "string" },
+        container: { type: "string" },
+        type: { type: "string", enum: ["website", "agent", "dashboard", "automation", "bridge", "other"] },
+      },
+      required: ["client_id", "name", "container"],
+    },
+    handler(args) {
+      if (!args.client_id) throw new Error("client_id is required");
+      if (!args.name || !String(args.name).trim()) throw new Error("name is required");
+      if (!args.container || !String(args.container).trim()) throw new Error("container is required");
+      const db = getDb();
+      try {
+        const client = db.prepare("SELECT id FROM clients WHERE id = ?").get(args.client_id);
+        if (!client) throw new Error("client not found");
+        const now = new Date().toISOString();
+        const service = {
+          id: makeId("svc"),
+          client_id: args.client_id,
+          name: String(args.name).trim(),
+          container: String(args.container).trim(),
+          type: args.type || "other",
+          status: "live",
+          created_at: now,
+        };
+        db.prepare(`
+          INSERT INTO services (id, client_id, name, container, type, status, created_at)
+          VALUES (@id, @client_id, @name, @container, @type, @status, @created_at)
+        `).run(service);
+        return service;
       } finally {
         db.close();
       }

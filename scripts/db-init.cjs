@@ -161,6 +161,16 @@ const SCHEMA_SQL = `
     dispatched_at TEXT,
     completed_at TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS services (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    container TEXT NOT NULL DEFAULT '',
+    type TEXT NOT NULL DEFAULT 'service',
+    status TEXT NOT NULL DEFAULT 'live',
+    created_at TEXT NOT NULL
+  );
 `;
 
 function ensureDataDir() {
@@ -208,7 +218,7 @@ const PHASE_LABELS = ["Idea", "Research", "Design", "Build", "Deploy", "SEO", "L
 const SEED_CLIENTS = [
   {
     name: "Waqas Bhai (PRO Office)",
-    box_host: "PRO VPS",
+    box_host: "200.97.166.206 (Hostinger)",
     plan: "PRO",
     status: "active",
     contact_email: "",
@@ -216,7 +226,7 @@ const SEED_CLIENTS = [
   },
   {
     name: "Opsync",
-    box_host: "Opsync VPS",
+    box_host: "187.77.140.128 (AI Invention VPS)",
     plan: "Amazon Expert",
     status: "active",
     contact_email: "",
@@ -248,6 +258,14 @@ const SEED_DELIVERABLES = [
     url: "https://opsync.tech",
   },
   { client: "Opsync", name: "Opsync MCP Server", type: "automation", status: "live", url: "" },
+];
+
+const SEED_SERVICES = [
+  { client: "Waqas Bhai (PRO Office)", name: "PRO Website", container: "professionalbs-web-1", type: "website" },
+  { client: "Waqas Bhai (PRO Office)", name: "PRO Agent", container: "hermes-waqas", type: "agent" },
+  { client: "Waqas Bhai (PRO Office)", name: "Receptionist", container: "hermes-waqas-rec", type: "agent" },
+  { client: "Waqas Bhai (PRO Office)", name: "Widget Bridge", container: "hermes-bridge", type: "automation" },
+  { client: "Opsync", name: "Opsync MCP Server", container: "opsync-mcp", type: "automation" },
 ];
 
 const SEED_PROJECTS = [
@@ -572,6 +590,36 @@ function seedIfEmpty(db) {
   // revenue table intentionally left empty — real data only, no fake/placeholder rows
 }
 
+function seedServicesIfEmpty(db) {
+  // Seed per-client infra services (docker containers) independently of the main seed.
+  // Idempotent — only inserts when the services table is empty.
+  const { count } = db.prepare("SELECT COUNT(*) as count FROM services").get();
+  if (count > 0) return;
+
+  const now = new Date().toISOString();
+  const rows = db.prepare("SELECT id, name FROM clients").all();
+  const byName = {};
+  for (const r of rows) byName[r.name] = r.id;
+
+  const insert = db.prepare(`
+    INSERT INTO services (id, client_id, name, container, type, status, created_at)
+    VALUES (@id, @client_id, @name, @container, @type, @status, @created_at)
+  `);
+  for (const svc of SEED_SERVICES) {
+    const clientId = byName[svc.client];
+    if (!clientId) continue;
+    insert.run({
+      id: makeId("svc"),
+      client_id: clientId,
+      name: svc.name,
+      container: svc.container,
+      type: svc.type,
+      status: "live",
+      created_at: now,
+    });
+  }
+}
+
 function seedClientsIfEmpty(db) {
   // Seed clients + deliverables independently of the main project seed,
   // and backfill client_id links on existing rows. Idempotent — safe every startup.
@@ -623,6 +671,7 @@ module.exports = {
   initSchema,
   seedIfEmpty,
   seedClientsIfEmpty,
+  seedServicesIfEmpty,
   ensureClientTokens,
   newClientToken,
   makeId,

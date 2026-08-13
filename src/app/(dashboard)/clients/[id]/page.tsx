@@ -48,6 +48,14 @@ interface SiteRow {
   status: string;
 }
 
+interface ServiceRow {
+  id: string;
+  name: string;
+  container: string;
+  type: string;
+  status: string;
+}
+
 interface CommandRow {
   id: string;
   type: string;
@@ -92,6 +100,7 @@ export default function ClientWorkspacePage() {
   });
   const [showDelivForm, setShowDelivForm] = useState(false);
   const [delivForm, setDelivForm] = useState({ name: "", type: "other", url: "", status: "live" });
+  const [services, setServices] = useState<ServiceRow[]>([]);
   const [commands, setCommands] = useState<CommandRow[]>([]);
   const [dispatching, setDispatching] = useState(false);
   const [showCustomForm, setShowCustomForm] = useState(false);
@@ -106,6 +115,7 @@ export default function ClientWorkspacePage() {
     setAgents(data.agents);
     setProjects(data.projects);
     setSites(data.sites);
+    setServices(data.services ?? []);
     setEditForm({
       name: data.client.name,
       box_host: data.client.box_host,
@@ -463,6 +473,47 @@ export default function ClientWorkspacePage() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Remote Control</h2>
         <div className="bg-surface border border-border rounded-xl p-4 space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs text-text-dim uppercase tracking-wide">Services</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {services.map((s) => (
+                <div key={s.id} className="bg-surface-2 border border-border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-sm truncate">{s.name}</p>
+                    <Badge tone={s.type}>{s.type}</Badge>
+                  </div>
+                  <p className="text-xs text-text-dim font-mono truncate">{s.container || "—"}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      disabled={dispatching}
+                      onClick={() => dispatchCommand("restart", s.container)}
+                      className="text-xs bg-accent/15 text-accent px-2.5 py-1.5 rounded-md disabled:opacity-50"
+                    >
+                      🔄 Restart
+                    </button>
+                    <button
+                      disabled={dispatching}
+                      onClick={() => dispatchCommand("healthcheck", s.container)}
+                      className="text-xs bg-surface border border-border px-2.5 py-1.5 rounded-md disabled:opacity-50"
+                    >
+                      ❤️ Health
+                    </button>
+                    <button
+                      disabled={dispatching}
+                      onClick={() => dispatchCommand("redeploy", s.container)}
+                      className="text-xs bg-surface border border-border px-2.5 py-1.5 rounded-md disabled:opacity-50"
+                    >
+                      🚀 Redeploy
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {services.length === 0 && (
+                <p className="text-text-dim text-sm sm:col-span-2">No services configured.</p>
+              )}
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             {COMMAND_TYPES.map((c) => (
               <button

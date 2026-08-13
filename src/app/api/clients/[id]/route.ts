@@ -19,8 +19,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .prepare("SELECT * FROM projects WHERE client_id = ? ORDER BY updated_at DESC")
     .all(id);
   const sites = db.prepare("SELECT * FROM sites WHERE client_id = ? ORDER BY name ASC").all(id);
+  const services = db.prepare("SELECT * FROM services WHERE client_id = ? ORDER BY name ASC").all(id);
 
-  return NextResponse.json({ client, deliverables, agents, projects, sites });
+  return NextResponse.json({ client, deliverables, agents, projects, sites, services });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -72,6 +73,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const run = db.transaction(() => {
     db.prepare("DELETE FROM deliverables WHERE client_id = ?").run(id);
+    db.prepare("DELETE FROM services WHERE client_id = ?").run(id);
     db.prepare("UPDATE agents SET client_id = NULL WHERE client_id = ?").run(id);
     db.prepare("UPDATE projects SET client_id = NULL WHERE client_id = ?").run(id);
     db.prepare("UPDATE sites SET client_id = NULL WHERE client_id = ?").run(id);

@@ -7,6 +7,7 @@ const dbInit = nodeRequire("../../scripts/db-init.cjs") as {
   initSchema: (db: DatabaseSync) => void;
   seedIfEmpty: (db: DatabaseSync) => void;
   seedClientsIfEmpty: (db: DatabaseSync) => void;
+  seedServicesIfEmpty: (db: DatabaseSync) => void;
   ensureClientTokens: (db: DatabaseSync) => number;
   DB_PATH: string;
 };
@@ -48,6 +49,7 @@ function createConnection(): DbHandle {
   dbInit.initSchema(raw);
   dbInit.seedIfEmpty(raw);
   dbInit.seedClientsIfEmpty(raw);
+  dbInit.seedServicesIfEmpty(raw);
   dbInit.ensureClientTokens(raw);
   return new DbHandle(raw);
 }
