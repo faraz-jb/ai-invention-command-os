@@ -21,6 +21,21 @@ interface DashboardData {
   clients: { id: string; name: string; status: string }[];
 }
 
+interface SiteAnalytics {
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  avg_position: number;
+  queries: number;
+}
+
+interface AnalyticsData {
+  updated: string | null;
+  sites: Record<string, SiteAnalytics>;
+  adsense: { account: string; sites: { url: string | null; state: string }[] };
+  containers: Record<string, { up: boolean; status: string }>;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   todo: "Todo",
   in_progress: "In Progress",
@@ -30,11 +45,15 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
 
   useEffect(() => {
     fetch("/api/dashboard")
       .then((r) => r.json())
       .then(setData);
+    fetch("/api/analytics")
+      .then((r) => r.json())
+      .then(setAnalytics);
   }, []);
 
   if (!data) return <p className="text-text-dim">Loading dashboard...</p>;
@@ -74,6 +93,79 @@ export default function DashboardPage() {
         <p className="text-text-dim text-xs uppercase tracking-wide">Revenue this month</p>
         <p className="text-2xl font-semibold mt-1 text-success">{formatMoney(data.revenue_total)}</p>
       </Link>
+
+      {analytics && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium">Site Analytics</h2>
+            <p className="text-text-dim text-xs">
+              {analytics.updated ? `Updated ${relativeTime(analytics.updated)}` : "No data yet"}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {Object.entries(analytics.sites).map(([name, s]) => (
+              <div key={name} className="bg-surface border border-border rounded-xl p-4">
+                <p className="text-text-dim text-xs uppercase tracking-wide truncate">{name}</p>
+                <p className="text-2xl font-semibold mt-1 text-accent">{s.clicks}</p>
+                <p className="text-text-dim text-xs mt-1">{s.impressions} impressions</p>
+                <p className="text-text-dim text-xs">{s.ctr.toFixed(2)}% CTR · pos {s.avg_position.toFixed(1)}</p>
+              </div>
+            ))}
+            {Object.keys(analytics.sites).length === 0 && (
+              <p className="text-text-dim text-sm">No site data yet.</p>
+            )}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <h3 className="font-medium mb-3">AdSense</h3>
+              <div className="flex items-center gap-2 text-sm mb-2">
+                <span
+                  className={`h-2 w-2 rounded-full shrink-0 ${
+                    analytics.adsense.account === "READY" ? "bg-success" : "bg-text-dim"
+                  }`}
+                />
+                <span>Account: {analytics.adsense.account}</span>
+              </div>
+              <div className="space-y-1">
+                {analytics.adsense.sites.map((s, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm text-text-dim">
+                    <span
+                      className={`h-2 w-2 rounded-full shrink-0 ${
+                        s.state === "ACTIVE" ? "bg-success" : s.state === "GETTING_READY" ? "bg-warning" : "bg-text-dim"
+                      }`}
+                    />
+                    <span className="truncate">{s.url ?? "(pending url)"}</span>
+                    <span className="shrink-0">
+                      {s.state === "GETTING_READY" ? "review pending" : s.state === "ACTIVE" ? "active" : s.state}
+                    </span>
+                  </div>
+                ))}
+                {analytics.adsense.sites.length === 0 && <p className="text-text-dim text-sm">No sites reported.</p>}
+              </div>
+            </div>
+
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <h3 className="font-medium mb-3">Containers</h3>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {Object.entries(analytics.containers).map(([name, c]) => (
+                  <div key={name} className="flex items-center gap-2 text-sm bg-surface-2 rounded-lg px-3 py-2">
+                    <span className={`h-2 w-2 rounded-full shrink-0 ${c.up ? "bg-success" : "bg-danger"}`} />
+                    <div className="min-w-0">
+                      <p className="truncate">{name}</p>
+                      <p className="text-text-dim text-xs truncate">{c.status}</p>
+                    </div>
+                  </div>
+                ))}
+                {Object.keys(analytics.containers).length === 0 && (
+                  <p className="text-text-dim text-sm">No containers reported.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-surface border border-border rounded-xl p-4">
