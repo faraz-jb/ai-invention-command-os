@@ -175,6 +175,78 @@ export interface CronsAnalytics {
   errors: CronSyncErrorEntry[];
 }
 
+export interface SeoAuditEntry {
+  url: string;
+  http_status: number;
+  ttfb_ms: number;
+  title: boolean;
+  meta_description: boolean;
+  canonical: boolean;
+  json_ld: boolean;
+  viewport: boolean;
+  adsense_tag: boolean;
+  og_image: boolean;
+  h1_count: number;
+  robots_txt: boolean;
+  sitemap: boolean;
+  sitemap_urls: number;
+}
+
+export interface SeoAuditData {
+  updated: string | null;
+  audits: Record<string, SeoAuditEntry>;
+}
+
+export type PositionTrend = "improving" | "dropping" | "stable";
+
+export interface PositionQuery {
+  query: string;
+  position: number;
+  impressions: number;
+  clicks: number;
+}
+
+export interface PositionTrendQuery {
+  query: string;
+  position: number;
+  pos_28d: number;
+  trend: PositionTrend;
+}
+
+export interface PositionTrackerSite {
+  top_queries: PositionQuery[];
+  top_7d: PositionTrendQuery[];
+}
+
+export interface PositionTrackerData {
+  updated: string | null;
+  sites: Record<string, PositionTrackerSite>;
+}
+
+export interface KeywordGapOpportunity {
+  query: string;
+  position: number;
+  impressions: number;
+  clicks: number;
+}
+
+export interface AutocompleteIdea {
+  seed: string;
+  suggestion: string;
+}
+
+export interface KeywordGapData {
+  updated: string | null;
+  gsc_opportunities: Record<string, KeywordGapOpportunity[]>;
+  autocomplete_ideas: AutocompleteIdea[];
+}
+
+export interface SeoToolsData {
+  audit: SeoAuditData | null;
+  positions: PositionTrackerData | null;
+  keywordGap: KeywordGapData | null;
+}
+
 export interface Session {
   id: string;
   agent_id: string;
