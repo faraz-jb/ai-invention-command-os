@@ -12,6 +12,7 @@ const EMPTY_ANALYTICS = {
   sites: {},
   adsense: { account: "unknown", sites: [] },
   containers: {},
+  crons: { summary: { total: 0, ok: 0, error: 0, never_run: 0 }, errors: [] },
 };
 
 export async function GET() {

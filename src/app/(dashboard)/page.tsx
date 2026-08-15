@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Badge from "@/components/Badge";
 import { formatMoney, relativeTime } from "@/lib/format";
+import type { CronsAnalytics } from "@/lib/types";
 
 interface DashboardData {
   stats: { active_projects: number; open_tasks: number; agents_online: number; sites_up: number };
@@ -34,6 +35,7 @@ interface AnalyticsData {
   sites: Record<string, SiteAnalytics>;
   adsense: { account: string; sites: { url: string | null; state: string }[] };
   containers: Record<string, { up: boolean; status: string }>;
+  crons?: CronsAnalytics;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -164,6 +166,38 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+
+          {analytics.crons && (
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium">Cron Jobs</h3>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-text-dim">{analytics.crons.summary.total} total</span>
+                  <span className="text-success">{analytics.crons.summary.ok} ok</span>
+                  <span className={analytics.crons.summary.error > 0 ? "text-danger" : "text-text-dim"}>
+                    {analytics.crons.summary.error} error
+                  </span>
+                  <span className="text-text-dim">{analytics.crons.summary.never_run} never run</span>
+                </div>
+              </div>
+              {analytics.crons.summary.error > 0 && (
+                <div className="space-y-1.5">
+                  {analytics.crons.errors.map((e, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-2 text-sm bg-danger/10 border border-danger/30 rounded-lg px-3 py-2"
+                    >
+                      <span className="h-2 w-2 rounded-full bg-danger shrink-0 mt-1.5" />
+                      <div className="min-w-0">
+                        <p className="truncate">{e.name}</p>
+                        <p className="text-text-dim text-xs truncate">{e.error}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

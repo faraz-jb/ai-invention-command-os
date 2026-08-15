@@ -165,6 +165,16 @@ export interface CronJob {
   created_at: string;
 }
 
+export interface CronSyncErrorEntry {
+  name: string;
+  error: string;
+}
+
+export interface CronsAnalytics {
+  summary: { total: number; ok: number; error: number; never_run: number };
+  errors: CronSyncErrorEntry[];
+}
+
 export interface Session {
   id: string;
   agent_id: string;
